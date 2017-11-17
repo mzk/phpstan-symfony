@@ -11,6 +11,11 @@ use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Scalar\String_;
+use PHPStan\Type\ObjectType;
+use PHPStan\Type\ThisType;
+use PHPStan\Type\UnionType;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 final class ContainerInterfacePrivateServiceRule implements Rule
@@ -33,17 +38,24 @@ final class ContainerInterfacePrivateServiceRule implements Rule
 
 	public function processNode(Node $node, Scope $scope): array
 	{
-		$services = $this->serviceMap->getServices();
-		return $node instanceof MethodCall
+		$type = $scope->getType($node->var);
+		$baseController = new ObjectType(Controller::class);
+		$isInstanceOfController = $type instanceof ThisType && $baseController->isSupersetOf($type)->yes();
+		$isContainerInterface = $type instanceof ObjectType && $type->getClassName() === ContainerInterface::class;
+		if ($node instanceof MethodCall
 			&& $node->name === 'get'
-			&& $scope->getType($node->var)->getClassName() === ContainerInterface::class
+			&& ($isContainerInterface || $isInstanceOfController)
 			&& isset($node->args[0])
 			&& $node->args[0] instanceof Arg
-			&& $node->args[0]->value instanceof String_
-			&& \array_key_exists($node->args[0]->value->value, $services)
+			&& $node->args[0]->value instanceof String_) {
+
+			$services = $this->serviceMap->getServices();
+			return \array_key_exists($node->args[0]->value->value, $services)
 			&& !$services[$node->args[0]->value->value]['public']
-			? [\sprintf('Service "%s" is private.', $node->args[0]->value->value)]
-			: [];
+				? [\sprintf('Service "%s" is private.', $node->args[0]->value->value)]
+				: [];
+		}
+		return [];
 	}
 
 }
