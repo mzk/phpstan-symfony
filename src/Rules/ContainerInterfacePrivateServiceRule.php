@@ -36,7 +36,7 @@ final class ContainerInterfacePrivateServiceRule implements Rule
 		$services = $this->serviceMap->getServices();
 		return $node instanceof MethodCall
 			&& $node->name === 'get'
-			&& $scope->getType($node->var)->getClass() === ContainerInterface::class
+			&& $scope->getType($node->var)->getClassName() === ContainerInterface::class
 			&& isset($node->args[0])
 			&& $node->args[0] instanceof Arg
 			&& $node->args[0]->value instanceof String_
