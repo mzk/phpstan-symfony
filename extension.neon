@@ -6,8 +6,12 @@ services:
 		class: Lookyman\PHPStan\Symfony\Type\ContainerAwareInterfaceDynamicReturnTypeExtension
 		tags: [phpstan.broker.dynamicMethodReturnTypeExtension]
 	-
+		class: Lookyman\PHPStan\Symfony\Type\ControllerDynamicReturnTypeExtension
+		tags: [phpstan.broker.dynamicMethodReturnTypeExtension]
+	-
 		class: Lookyman\PHPStan\Symfony\Rules\ContainerInterfacePrivateServiceRule
 		tags: [phpstan.rules.rule]
 	-
 		class: Lookyman\PHPStan\Symfony\Rules\ContainerInterfaceUnknownServiceRule
 		tags: [phpstan.rules.rule]
+	- Lookyman\PHPStan\Symfony\ServiceMap(%symfony.srcDevDebugProjectContainerXml%)

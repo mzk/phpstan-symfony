@@ -7,14 +7,10 @@ namespace Lookyman\PHPStan\Symfony\Rules;
 use Lookyman\PHPStan\Symfony\ServiceMap;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
+use PHPStan\Type\ObjectType;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Scalar\String_;
-use PHPStan\Type\ObjectType;
-use PHPStan\Type\ThisType;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 
 final class ContainerInterfaceUnknownServiceRule implements Rule
 {
@@ -36,19 +32,20 @@ final class ContainerInterfaceUnknownServiceRule implements Rule
 
 	public function processNode(Node $node, Scope $scope): array
 	{
-		$type = $scope->getType($node->var);
-		$baseController = new ObjectType(Controller::class);
-		$isInstanceOfController = $type instanceof ThisType && $baseController->isSupersetOf($type)->yes();
-		$isContainerInterface = $type instanceof ObjectType && $type->getClassName() === ContainerInterface::class;
-		$services = $this->serviceMap->getServices();
-		return $node instanceof MethodCall
-			&& $node->name === 'get'
-			&& ($isContainerInterface || $isInstanceOfController)
-			&& isset($node->args[0])
-			&& $node->args[0] instanceof Arg
-			&& $node->args[0]->value instanceof String_
-			&& !\array_key_exists($node->args[0]->value->value, $services)
-				? [\sprintf('Service "%s" is not registered in the container.', $node->args[0]->value->value)]
-				: [];
+		if ($node instanceof MethodCall && $node->name === 'get') {
+			$type = $scope->getType($node->var);
+			if ($type instanceof ObjectType
+				&& \in_array($type->getClassName(), ['Symfony\Component\DependencyInjection\ContainerInterface', 'Symfony\Bundle\FrameworkBundle\Controller\Controller'], \true)
+				&& isset($node->args[0])
+				&& $node->args[0] instanceof Arg
+			) {
+				$service = $this->serviceMap->getServiceFromNode($node->args[0]->value);
+				if ($service === \null) {
+					return [\sprintf('Service "%s" is not registered in the container.', ServiceMap::getServiceIdFromNode($node->args[0]->value))];
+				}
+			}
+		}
+		return [];
 	}
+
 }
