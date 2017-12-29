@@ -12,44 +12,43 @@ use PHPStan\Type\ObjectType;
 use PHPStan\Type\Type;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Scalar\String_;
-use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 
 final class ContainerAwareInterfaceDynamicReturnTypeExtension implements DynamicMethodReturnTypeExtension
 {
 
-    /**
-     * @var ServiceMap
-     */
-    private $serviceMap;
+	/**
+	 * @var ServiceMap
+	 */
+	private $serviceMap;
 
-    public function __construct(ServiceMap $symfonyServiceMap)
-    {
-        $this->serviceMap = $symfonyServiceMap;
-    }
+	public function __construct(ServiceMap $symfonyServiceMap)
+	{
+		$this->serviceMap = $symfonyServiceMap;
+	}
 
-    public function getClass(): string
-    {
-        return ContainerAwareInterface::class;
-    }
+	public function getClass(): string
+	{
+		return 'Symfony\Component\DependencyInjection\ContainerAwareInterface';
+	}
 
-    public function isMethodSupported(MethodReflection $methodReflection): bool
-    {
-        return $methodReflection->getName() === 'get';
-    }
+	public function isMethodSupported(MethodReflection $methodReflection): bool
+	{
+		return $methodReflection->getName() === 'get';
+	}
 
-    public function getTypeFromMethodCall(
-        MethodReflection $methodReflection,
-        MethodCall $methodCall,
-        Scope $scope
-    ): Type {
-        $services = $this->serviceMap->getServices();
-
-        return isset($methodCall->args[0])
-        && $methodCall->args[0] instanceof Arg
-        && $methodCall->args[0]->value instanceof String_
-        && \array_key_exists($methodCall->args[0]->value->value, $services)
-        && !$services[$methodCall->args[0]->value->value]['synthetic'] ? new ObjectType($services[$methodCall->args[0]->value->value]['class']) : $methodReflection->getReturnType();
-    }
-
+	public function getTypeFromMethodCall(
+		MethodReflection $methodReflection,
+		MethodCall $methodCall,
+		Scope $scope
+	): Type {
+		if (isset($methodCall->args[0])
+			&& $methodCall->args[0] instanceof Arg
+		) {
+			$service = $this->serviceMap->getServiceFromNode($methodCall->args[0]->value);
+			if ($service !== \null && !$service['synthetic']) {
+				return new ObjectType($service['class'] ?? $service['id']);
+			}
+		}
+		return $methodReflection->getReturnType();
+	}
 }
