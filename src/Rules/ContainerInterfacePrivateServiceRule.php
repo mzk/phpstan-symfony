@@ -11,6 +11,7 @@ use PHPStan\Type\ObjectType;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
+use PHPStan\Type\ThisType;
 
 final class ContainerInterfacePrivateServiceRule implements Rule
 {
@@ -34,8 +35,10 @@ final class ContainerInterfacePrivateServiceRule implements Rule
 	{
 		if ($node instanceof MethodCall && $node->name === 'get') {
 			$type = $scope->getType($node->var);
-			if ($type instanceof ObjectType
-				&& \in_array($type->getClassName(), ['Symfony\Component\DependencyInjection\ContainerInterface', 'Symfony\Bundle\FrameworkBundle\Controller\Controller'], \true)
+			$baseController = new ObjectType('Symfony\Bundle\FrameworkBundle\Controller\Controller');
+			$isInstanceOfController = $type instanceof ThisType && $baseController->isSuperTypeOf($type)->yes();
+			$isContainerInterface = $type instanceof ObjectType && $type->getClassName() === 'Symfony\Component\DependencyInjection\ContainerInterface';
+			if (($isContainerInterface || $isInstanceOfController)
 				&& isset($node->args[0])
 				&& $node->args[0] instanceof Arg
 			) {
